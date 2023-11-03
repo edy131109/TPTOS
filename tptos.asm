@@ -330,19 +330,18 @@ puts:
     mov r1, [r0]
     jz .exit
     add r0, 1
-    send r10, r1
     add r11, 1
     cmp r1, 1
     je .newline
+    send r10, r1
     mov r2, r11
     and r2, 31
-    cmp r2, 0
-    jne .else
+    ;cmp r2, 0
+    jnz .loop
 .newline:
     send r10, 0x3000
     send r10, 0x12e0
     mov r11, 0
-.else:
     jmp .loop
 .exit:
     pop r2
