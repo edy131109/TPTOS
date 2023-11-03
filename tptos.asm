@@ -39,6 +39,7 @@ start:
     ; so that we don't overflow into other memory
     mov r0, input_buf
     mov r1, input_len
+    mov r2, 2
     call scans
     mov r0, newline
     call puts
@@ -62,6 +63,7 @@ start:
     call puts
     mov r0, input_buf
     mov r1, input_len
+    mov r2, 14
     call scans
     mov r0, newline
     call puts
@@ -113,18 +115,34 @@ clear_screen:
 	ret
 
 getc:
-    recv [r0], r10
-    jnc getc
+    wait r9
+    js getc
+    bump r9
+.sync_loop:
+    recv [r0], r9
+    cmp [r0], 0
+    je .sync_loop
+    bump r9
     ret
 
 ; Gets a zero-terminated string from the keyboard
 ; Returns length read in r12
+; r2 - input offset
 gets:
     mov r12, 0
+    push r3
+    mov r3, 0
+    ;mov r3, 0x1000
+    ;push r2
+    ;add r2, 0xAF
+    ;or r3, r2
+    ;pop r2
 .loop:
     call getc
-    cmp [r0], 10
+    cmp [r0], 13
     je .end
+    cmp [r0], 8
+    je .backspace
     add r12, 1
     push r1
     mov r1, [r0]
@@ -136,7 +154,25 @@ gets:
     pop r1
     add r0, 1
     jmp .loop
+.backspace:
+    cmp r12, 0
+    je .loop
+    sub r12, 1
+    mov r3, 0x1200
+    push r2
+    add r2, 0x00e0
+    add r2, r12
+    or r3, r2
+    pop r2
+    send r10, r3
+    send r10, 0x0000
+    send r10, r3
+    sub r11, 1
+    mov [r0], 0
+    sub r0, 1
+    jmp .loop
 .end:
+    pop r3
     mov [r0], 0
     add r12, 1
     ret
