@@ -9,4 +9,4 @@ Features:
 Upcoming features:
   - Fat12 file system (or any other file system)
   - more commands
-  - hopefully speed optimizations because it's painfully slow as of now (but there's not much to optimize)
+  - hopefully speed optimizations because it's still quite slow (but there's not much to optimize)
