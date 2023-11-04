@@ -11,6 +11,20 @@ start:
     send r10, 0x200a    ; set the screen color to green
     call clear_screen   ; clear the screen
 
+    ; mov r0, input_buf
+    ; mov r1, input_len
+    ; mov r2, 0
+    ; call scans
+    ; mov r0, input_buf
+    ; mov r1, 0
+    ; call stoi
+    ; mov r0, r1
+    ; mov r4, input_buf
+    ; call itos
+    ; mov r0, input_buf
+    ; call puts
+    ; hlt
+
     mov r0, compile
     call puts
 
@@ -20,6 +34,18 @@ start:
     call strsum_ptr
     mov r0, help
     mov r1, help_sum
+    call strsum_ptr
+    mov r0, add_cmd
+    mov r1, add_sum
+    call strsum_ptr
+    mov r0, sub_cmd
+    mov r1, sub_sum
+    call strsum_ptr
+    mov r0, div_cmd
+    mov r1, div_sum
+    call strsum_ptr
+    mov r0, mul_cmd
+    mov r1, mul_sum
     call strsum_ptr
 
     call clear_screen
@@ -53,6 +79,18 @@ start:
     mov r2, [help_sum]
     cmp [r1], r2
     je .help
+    mov r2, [add_sum]
+    cmp [r1], r2
+    je .add_cmdf
+    mov r2, [sub_sum]
+    cmp [r1], r2
+    je .sub_cmdf
+    mov r2, [div_sum]
+    cmp [r1], r2
+    je .div_cmdf
+    mov r2, [mul_sum]
+    cmp [r1], r2
+    je .mul_cmdf
     jmp .unknown
     hlt
     jmp start           ; allow hot reload
@@ -76,6 +114,68 @@ start:
     call puts
     jmp .input_loop
 
+.add_cmdf:
+    call getab
+    add r0, r1
+    push r0
+    mov r0, add_msg
+    call puts
+    pop r0
+    mov r4, input_buf
+    call itos
+    mov r0, input_buf
+    call puts
+    jmp .input_loop
+
+.sub_cmdf:
+    call getab
+    sub r0, r1
+    push r0
+    mov r0, sub_msg
+    call puts
+    pop r0
+    mov r4, input_buf
+    call itos
+    mov r0, input_buf
+    call puts
+    jmp .input_loop
+
+.div_cmdf:
+    call getab
+    call div16
+    mov r0, r2
+    push r3
+    push r0
+    mov r0, div_msg
+    call puts
+    pop r0
+    mov r4, input_buf
+    call itos
+    mov r0, input_buf
+    call puts
+    mov r0, newline
+    call puts
+    mov r0, div_msg2
+    call puts
+    pop r0
+    mov r4, input_buf
+    call itos
+    mov r0, input_buf
+    call puts
+    jmp .input_loop
+
+.mul_cmdf:
+    call getab
+    call mul16
+    mov r0, mul_msg
+    call puts
+    mov r0, r2
+    mov r4, input_buf
+    call itos
+    mov r0, input_buf
+    call puts
+    jmp .input_loop
+
 .unknown:
     mov r0, unknown_cmd
     call puts
@@ -84,6 +184,66 @@ start:
     mov r0, unknown_cmd2
     call puts
     jmp .input_loop
+
+; ; Divides a number by 10
+; ; Very inaccurate, needs fix
+; div10:
+;     push r0
+;     push r3
+;     mov r2, 0x0100  ; initial count of how many divisors into r0 to check for
+;     mov r1, 0x00A0  ; value of "divisor * r2"
+;     xor r3, r3      ; result
+; .top:
+;     cmp r0, r1
+;     jl .skip
+;     ; we can fit "r2" copies of the divisor into r0, so tally them
+;     add r3, r2
+;     sub r0, r1
+;     ; optionally can have a "jz done" here to break out of the loop
+; .skip:
+;     shr r1, 1
+;     shr r2, 1
+;     jnz .top
+
+;     ; copy result into r1 and remainder in r2
+;     mov r2, r0
+;     mov r1, r3
+;     pop r3
+;     pop r0
+;     ret
+
+getab:
+    mov r0, prompt_a
+    call puts
+    mov r0, input_buf
+    mov r1, input_len
+    mov r2, 2
+    call scans
+    mov r0, input_buf
+    mov r1, 0
+    call stoi
+    push r1
+
+    mov r0, newline
+    call puts
+
+    mov r0, prompt_b
+    call puts
+    mov r0, input_buf
+    mov r1, input_len
+    mov r2, 2
+    call scans
+    mov r0, input_buf
+    mov r1, 0
+    call stoi
+    pop r0
+
+    push r0
+    mov r0, newline
+    call puts
+    pop r0
+
+    ret
 
 ; Functions
 clear_screen:
@@ -114,15 +274,117 @@ clear_screen:
 	send r10, 0x3000
 	ret
 
+; Divides r0 by r1
+; r2 - result
+; r3 - remainder
+div16:
+    push r0
+
+    mov r2, 0
+    mov r3, 0
+.loop:
+    cmp r0, r1
+    jl .lower
+.greater:
+    sub r0, r1
+    add r2, 1
+    jmp .loop
+.lower:
+    mov r3, r0
+
+    pop r0
+    ret
+
+; Multiplies r0 by r1
+; r2 - result
+mul16:
+    push r1
+    mov r2, 0
+.loop:
+    cmp r1, 0
+    je .end
+    add r2, r0
+    sub r1, 1
+    jmp .loop
+.end:
+    pop r1
+    ret
+
+
+; Converts a zero terminated string to an integer
+; r0 - string buffer
+; r1 - output integer
+stoi:
+    push r2
+    push r3
+.loop:
+    mov r2, [r0]
+    jz .end
+    ; multiply r1 by 10
+    shl r1, 1
+    mov r3, r1
+    shl r1, 2
+    add r1, r3
+
+    sub r2, 48
+    add r1, r2
+    add r0, 1
+    jmp .loop
+.end:
+    pop r3
+    pop r2
+    ret
+
 getc:
     wait r9
     js getc
     bump r9
 .sync_loop:
     recv [r0], r9
-    cmp [r0], 0
-    je .sync_loop
+    ;cmp [r0], 0
+    jz .sync_loop
     bump r9
+    ret
+
+; Convert an integer to a zero terminated string
+; r0 - integer
+; r4 - string buffer
+itos:
+    push r1
+    push r2
+    push r3
+    push r5
+    cmp r0, 0
+    je .zero
+    mov r1, 0
+    mov r2, 0
+    mov r5, 0
+.loop:
+    cmp r0, 0
+    je .build_string
+    mov r1, 10
+    call div16
+    mov r0, r2
+    add r3, 48
+    push r3
+    add r5, 1
+    jmp .loop
+.build_string:
+    cmp r5, 0
+    je .end
+    pop [r4]
+    add r4, 1
+    sub r5, 1
+    jmp .build_string
+.zero:
+    mov [r4], 48
+    add r4, 1
+.end:
+    mov [r4], 0
+    pop r5
+    pop r3
+    pop r2
+    pop r1
     ret
 
 ; Gets a zero-terminated string from the keyboard
@@ -144,14 +406,7 @@ gets:
     cmp [r0], 8
     je .backspace
     add r12, 1
-    push r1
-    mov r1, [r0]
-    push r0
-    mov r0, char_ptr
-    mov [r0], r1
-    call puts
-    pop r0
-    pop r1
+    send r10, [r0]
     add r0, 1
     jmp .loop
 .backspace:
@@ -324,6 +579,7 @@ strsum_ptr:
 ; r0 points to buffer to write from.
 ; r10 is terminal port address.
 puts:
+    push r1
     push r2
     mov r2, 0
 .loop:
@@ -345,6 +601,7 @@ puts:
     jmp .loop
 .exit:
     pop r2
+    pop r1
     ret
 
 ; Strings
@@ -362,9 +619,28 @@ echo: dw "echo", 0
 echo_prompt: dw "Text to echo: ", 0
 echo_sum: dw 0
 help: dw "help", 0
-help_msg: dw "echo     Prints text to the terminal.", 1, "help     Shows this message.", 0 
+help_msg: dw "echo     Prints text to the terminal.", 1, "help     Shows this message.", 1, "add      Adds two numbers.", 1, "sub      Subtracts two numbers.", 1, "mul      Multiplies two numbers.", "div      Divides two numbers.", 0 
 help_sum: dw 0
+add_cmd: dw "add", 0
+add_msg: dw "a+b=", 0
+add_sum: dw 0
+sub_cmd: dw "sub", 0
+sub_msg: dw "a-b=", 0
+sub_sum: dw 0
+div_cmd: dw "div", 0
+div_msg: dw "a/b=", 0
+div_msg2: dw "a%b=", 0
+div_sum: dw 0
+mul_cmd: dw "mul", 0
+mul_msg: dw "a*b=", 0
+mul_sum: dw 0
 
+prompt_a: dw "a=", 0
+prompt_b: dw "b=", 0
+
+true: dw "true", 0
+
+; Buffers
 char_ptr: dw 0, 0
 input_len: dw 0
 input_sum: dw 0
